@@ -297,12 +297,13 @@ export class Parser {
   }
 
   private isCharNode(node: ParseNode): boolean {
-    // Check if the node represents a single character
+    // Check if the node represents a single character or a parenthesized expression
     return (
       node.type === "char" ||
       (node.type === "base" &&
         node.children.length === 0 &&
-        this.isChar(node.value))
+        this.isChar(node.value)) ||
+      (node.type === "base" && node.value === "()") // Allow Kleene star on parenthesized expressions
     );
   }
 

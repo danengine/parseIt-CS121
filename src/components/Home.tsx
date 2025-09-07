@@ -28,7 +28,7 @@ const Home: React.FC = () => {
       
       if (howItWorksSection) {
         const rect = howItWorksSection.getBoundingClientRect();
-        const isInView = rect.top <= window.innerHeight && rect.bottom >= 0;
+        const isInView = rect.top <= window.innerHeight * 0.8 && rect.bottom >= 0;
         if (isInView && !isHowItWorksInView) {
           setIsHowItWorksInView(true);
         }
@@ -36,13 +36,16 @@ const Home: React.FC = () => {
       
       if (aboutUsSection) {
         const rect = aboutUsSection.getBoundingClientRect();
-        const isInView = rect.top <= window.innerHeight && rect.bottom >= 0;
+        const isInView = rect.top <= window.innerHeight * 0.8 && rect.bottom >= 0;
         if (isInView && !isAboutUsInView) {
           setIsAboutUsInView(true);
         }
       }
     };
 
+    // Run once on mount to check initial state
+    handleScroll();
+    
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, [isHowItWorksInView, isAboutUsInView]);

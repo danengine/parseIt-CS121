@@ -6,6 +6,7 @@ import Home from './components/Home'
 import Playground from './components/Playground'
 import NotFound from './components/NotFound'
 import Footer from './components/Footer'
+// import ChatBot from './components/ChatBot'
 
 function AppContent() {
   const location = useLocation();
@@ -39,6 +40,7 @@ function AppContent() {
         </Routes>
       </main>
       <Footer />
+      {/*Soon nalang eto <ChatBot /> */}
     </div>
   )
 }
