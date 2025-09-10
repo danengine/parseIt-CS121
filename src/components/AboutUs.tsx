@@ -16,7 +16,7 @@ const AboutUs: React.FC<AboutUsProps> = ({ isInView }) => {
     {
       name: "Danilo Eslawan",
       role: "Lead Developer",
-      bio: "Full-stack developer with expertise in compiler design and parsing algorithms. Passionate about creating educational tools that make complex concepts accessible.",
+      bio: "Full-stack developer passionate about building modern and user-friendly applications.",
       github: "https://github.com/danengine",
       linkedin: "https://linkedin.com/in/danengine",
       avatar: "../developers/dan.jpg"
