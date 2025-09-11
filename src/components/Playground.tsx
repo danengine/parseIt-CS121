@@ -122,7 +122,6 @@ const Playground: React.FC = () => {
     tokensString: string;
   } | null>(null);
   const [showDerivation, setShowDerivation] = useState(false);
-  const [showParseTree, setShowParseTree] = useState(false);
   const [showTokens, setShowTokens] = useState(false);
   const [isHeaderVisible, setIsHeaderVisible] = useState(false);
   const [isInputVisible, setIsInputVisible] = useState(false);
