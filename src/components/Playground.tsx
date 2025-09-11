@@ -173,7 +173,6 @@ const Playground: React.FC = () => {
       const syntaxResult = checkSyntax(input);
       setResult(syntaxResult);
       setShowDerivation(syntaxResult.isValid && !!syntaxResult.derivation);
-      setShowParseTree(syntaxResult.isValid && !!syntaxResult.parseTree);
     } catch (e: any) {
       setResult({ isValid: false, message: `❌ ${e.message}` });
       setTokenResult(null);
