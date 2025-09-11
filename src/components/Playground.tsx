@@ -150,7 +150,6 @@ const Playground: React.FC = () => {
     setResult(null);
     setTokenResult(null);
     setShowDerivation(false);
-    setShowParseTree(false);
     setShowTokens(false);
   };
 
