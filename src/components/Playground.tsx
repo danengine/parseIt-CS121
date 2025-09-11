@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { checkSyntax } from "../lib/Parser";
+import { checkSyntax2 } from "../lib/Parser2";
 
 interface ParseTreeNodeProps {
   node: any;
@@ -9,14 +9,47 @@ interface ParseTreeNodeProps {
 const ParseTreeNode: React.FC<ParseTreeNodeProps> = ({ node, level = 0 }) => {
   const hasChildren = node.children && node.children.length > 0;
   
+  // Color coding for different node types
+  const getNodeColor = (type: string) => {
+    switch (type) {
+      case 'start': return 'border-blue-400 bg-blue-900/20';
+      case 'union': return 'border-red-400 bg-red-900/20';
+      case 'concat': return 'border-green-400 bg-green-900/20';
+      case 'arith': return 'border-yellow-400 bg-yellow-900/20';
+      case 'term': return 'border-orange-400 bg-orange-900/20';
+      case 'factor': return 'border-purple-400 bg-purple-900/20';
+      case 'base': return 'border-pink-400 bg-pink-900/20';
+      case 'number': return 'border-cyan-400 bg-cyan-900/20';
+      case 'char': return 'border-indigo-400 bg-indigo-900/20';
+      case 'digit': return 'border-emerald-400 bg-emerald-900/20';
+      default: return 'border-teal-400 bg-gray-900/20';
+    }
+  };
+
+  const getTextColor = (type: string) => {
+    switch (type) {
+      case 'start': return 'text-blue-400';
+      case 'union': return 'text-red-400';
+      case 'concat': return 'text-green-400';
+      case 'arith': return 'text-yellow-400';
+      case 'term': return 'text-orange-400';
+      case 'factor': return 'text-purple-400';
+      case 'base': return 'text-pink-400';
+      case 'number': return 'text-cyan-400';
+      case 'char': return 'text-indigo-400';
+      case 'digit': return 'text-emerald-400';
+      default: return 'text-teal-400';
+    }
+  };
+  
   return (
     <div className="relative">
       {/* Node Box */}
       <div className="flex items-center justify-center mb-2">
-        <div className="bg-gray-800 border-2 border-teal-400 rounded-lg px-3 py-2 shadow-lg">
+        <div className={`border-2 rounded-lg px-3 py-2 shadow-lg ${getNodeColor(node.type)}`}>
           <div className="text-center">
             <div 
-              className="text-teal-400 font-bold text-sm"
+              className={`font-bold text-sm ${getTextColor(node.type)}`}
               style={{ fontFamily: "DM Mono, monospace" }}
             >
               {node.type}
@@ -33,6 +66,14 @@ const ParseTreeNode: React.FC<ParseTreeNodeProps> = ({ node, level = 0 }) => {
                 style={{ fontFamily: "DM Mono, monospace" }}
               >
                 prec: {node.precedence}
+              </div>
+            )}
+            {node.associativity && (
+              <div 
+                className="text-gray-400 text-xs mt-1"
+                style={{ fontFamily: "DM Mono, monospace" }}
+              >
+                {node.associativity}
               </div>
             )}
           </div>
@@ -112,7 +153,7 @@ const Playground: React.FC = () => {
       return;
     }
     
-    const syntaxResult = checkSyntax(input);
+    const syntaxResult = checkSyntax2(input);
     setResult(syntaxResult);
     setShowDerivation(syntaxResult.isValid && !!syntaxResult.derivation);
     setShowParseTree(syntaxResult.isValid && !!syntaxResult.parseTree);
@@ -169,7 +210,7 @@ const Playground: React.FC = () => {
             className="text-sm sm:text-base md:text-lg text-gray-300 max-w-2xl mx-auto px-4 md:px-0"
             style={{ fontFamily: "DM Mono, monospace" }}
           >
-            Enter an arithmetic expression or regex pattern to check its syntax and see the derivation tree
+            Enter an arithmetic expression or regex pattern (no spaces allowed) to check its syntax and see the derivation tree
           </p>
         </div>
 
@@ -194,7 +235,7 @@ const Playground: React.FC = () => {
                 value={input}
                 onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
-                placeholder="e.g., 2 + 3 * 4, a|b, (a+b)*c, 1.5 + 2.3"
+                placeholder="e.g., 2+3*4, a|b, (a+b)*c, 1.5+2.3"
                 className="flex-1 px-3 sm:px-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-teal-400 focus:ring-1 focus:ring-teal-400 text-sm sm:text-base"
                 style={{ fontFamily: "DM Mono, monospace" }}
               />
@@ -217,7 +258,7 @@ const Playground: React.FC = () => {
               Try these examples:
             </p>
             <div className="flex flex-wrap gap-2">
-              {["2 + 3", "a|b", "5 * 4 + 2", "(a+b)*c", "1.5 + 2.3", "ab*|cd", "a*b|c*d"].map((example, index) => (
+              {["2+3", "a|b", "5*4+2", "(a+b)*c", "1.5+2.3", "ab*|cd", "a*b|c*d"].map((example, index) => (
                 <button
                   key={index}
                   onClick={() => setInput(example)}
@@ -320,8 +361,8 @@ const Playground: React.FC = () => {
                         <strong>How it works:</strong> This derivation shows how your expression 
                         is parsed according to the combined arithmetic and regex grammar rules. Each step represents a 
                         production rule being applied to transform the input into a valid parse tree structure. 
-                        The parser handles both arithmetic expressions (like "2 + 3 * 4") and regex patterns 
-                        (like "ab*|cd") using the same grammar hierarchy.
+                        The parser handles both arithmetic expressions (like "2+3*4") and regex patterns 
+                        (like "ab*|cd") using the same grammar hierarchy. Note that whitespace is not allowed in expressions.
                       </p>
                     </div>
                   </div>
@@ -362,15 +403,25 @@ const Playground: React.FC = () => {
                         className="text-sm text-gray-300"
                         style={{ fontFamily: "DM Mono, monospace" }}
                       >
-                        <strong>Parse Tree:</strong> This shows the hierarchical structure of your expression. 
+                        <strong>Parse Tree:</strong> This shows the complete hierarchical structure of your expression with ALL intermediate nodes visible. 
                         Each node represents a grammar rule application, with children showing how the expression 
-                        is broken down. The tree supports both arithmetic operations (+, -, *, /) and regex operations 
-                        (| for union, implicit concatenation, * for Kleene star). 
+                        is broken down step by step. The tree supports both arithmetic operations (+, -, *, /) and regex operations 
+                        (| for union, · for concatenation, * for Kleene star). 
+                        <br/><br/>
+                        <strong>Color Coding:</strong> Each node type has a unique color to make the tree structure clearer:
+                        <br/>• <span className="text-blue-400">Start</span> - Root node
+                        <br/>• <span className="text-red-400">Union</span> - | operator
+                        <br/>• <span className="text-green-400">Concat</span> - · concatenation
+                        <br/>• <span className="text-yellow-400">Arith</span> - + and - operations
+                        <br/>• <span className="text-orange-400">Term</span> - * and / operations
+                        <br/>• <span className="text-purple-400">Factor</span> - Kleene star
+                        <br/>• <span className="text-pink-400">Base</span> - Parentheses
+                        <br/>• <span className="text-cyan-400">Number</span> - Numeric literals
+                        <br/>• <span className="text-indigo-400">Char</span> - Character literals
+                        <br/>• <span className="text-emerald-400">Digit</span> - Individual digits
                         <br/><br/>
                         <strong>Precedence levels:</strong> Union (0.5), Addition/Subtraction (1), Multiplication/Division (2), 
-                        Concatenation (2.5), Parentheses (3), Kleene Star (4). Concatenation is implicit - when you write 
-                        "ab", it means "a concatenated with b" (no visible operator). This allows regex patterns like 
-                        "ab*|cd" to be parsed correctly as "(a(b*)) | (cd)".
+                        Concatenation (2.5), Parentheses (3), Kleene Star (4). All operations are now explicitly shown in the tree.
                       </p>
                     </div>
                   </div>
@@ -406,28 +457,28 @@ const Playground: React.FC = () => {
                   <code className="text-teal-400">expr</code> → <code className="text-yellow-400">union</code>
                 </div>
                 <div style={{ fontFamily: "DM Mono, monospace" }}>
-                  <code className="text-teal-400">union</code> → <code className="text-yellow-400">concat</code> | <code className="text-yellow-400">union</code> | <code className="text-yellow-400">concat</code>
+                  <code className="text-teal-400">union</code> → <code className="text-yellow-400">concat</code> | <code className="text-yellow-400">union</code> <code className="text-red-400">"|"</code> <code className="text-yellow-400">concat</code>
                 </div>
                 <div style={{ fontFamily: "DM Mono, monospace" }}>
                   <code className="text-teal-400">concat</code> → <code className="text-yellow-400">arith</code> | <code className="text-yellow-400">concat</code> <code className="text-yellow-400">arith</code>
                 </div>
                 <div style={{ fontFamily: "DM Mono, monospace" }}>
-                  <code className="text-teal-400">arith</code> → <code className="text-yellow-400">term</code> | <code className="text-yellow-400">arith</code> + <code className="text-yellow-400">term</code> | <code className="text-yellow-400">arith</code> - <code className="text-yellow-400">term</code>
+                  <code className="text-teal-400">arith</code> → <code className="text-yellow-400">term</code> | <code className="text-yellow-400">arith</code> <code className="text-red-400">"+"</code> <code className="text-yellow-400">term</code> | <code className="text-yellow-400">arith</code> <code className="text-red-400">"-"</code> <code className="text-yellow-400">term</code>
                 </div>
                 <div style={{ fontFamily: "DM Mono, monospace" }}>
-                  <code className="text-teal-400">term</code> → <code className="text-yellow-400">factor</code> | <code className="text-yellow-400">term</code> * <code className="text-yellow-400">factor</code> | <code className="text-yellow-400">term</code> / <code className="text-yellow-400">factor</code>
+                  <code className="text-teal-400">term</code> → <code className="text-yellow-400">factor</code> | <code className="text-yellow-400">term</code> <code className="text-red-400">"*"</code> <code className="text-yellow-400">factor</code> | <code className="text-yellow-400">term</code> <code className="text-red-400">"/"</code> <code className="text-yellow-400">factor</code>
                 </div>
                 <div style={{ fontFamily: "DM Mono, monospace" }}>
-                  <code className="text-teal-400">factor</code> → <code className="text-yellow-400">base</code> | <code className="text-yellow-400">base</code> *
+                  <code className="text-teal-400">factor</code> → <code className="text-yellow-400">base</code> | <code className="text-yellow-400">base</code> <code className="text-red-400">"*"</code>
                 </div>
                 <div style={{ fontFamily: "DM Mono, monospace" }}>
-                  <code className="text-teal-400">base</code> → <code className="text-yellow-400">number</code> | <code className="text-yellow-400">char</code> | ( <code className="text-yellow-400">expr</code> )
+                  <code className="text-teal-400">base</code> → <code className="text-yellow-400">number</code> | <code className="text-yellow-400">char</code> | <code className="text-red-400">"("</code> <code className="text-yellow-400">expr</code> <code className="text-red-400">")"</code>
                 </div>
                 <div style={{ fontFamily: "DM Mono, monospace" }}>
-                  <code className="text-teal-400">number</code> → <code className="text-yellow-400">digit</code> | <code className="text-yellow-400">digit</code> <code className="text-yellow-400">number</code> | <code className="text-yellow-400">digit</code> . <code className="text-yellow-400">number</code>
+                  <code className="text-teal-400">number</code> → <code className="text-yellow-400">digit</code> | <code className="text-yellow-400">digit</code> <code className="text-yellow-400">number</code> | <code className="text-yellow-400">digit</code> <code className="text-red-400">"."</code> <code className="text-yellow-400">number</code>
                 </div>
                 <div style={{ fontFamily: "DM Mono, monospace" }}>
-                  <code className="text-teal-400">char</code> → a | b | c | ... | z
+                  <code className="text-teal-400">char</code> → <code className="text-red-400">"a"</code> | <code className="text-red-400">"b"</code> | <code className="text-red-400">"c"</code> | ... | <code className="text-red-400">"z"</code>
                 </div>
                 <div style={{ fontFamily: "DM Mono, monospace" }}>
                   <code className="text-teal-400">digit</code> → 0 | 1 | 2 | ... | 9
