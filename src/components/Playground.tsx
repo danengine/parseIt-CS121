@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { checkSyntax2 } from "../lib/Parser2";
+import { checkSyntax } from "../lib/Parser";
+import { tokenizeExpression } from "../lib/Tokenizer";
+import TokenDisplay from "./UI/TokenDisplay";
 
 interface ParseTreeNodeProps {
   node: any;
@@ -115,8 +117,13 @@ const Playground: React.FC = () => {
     derivation?: string[];
     parseTree?: any;
   } | null>(null);
+  const [tokenResult, setTokenResult] = useState<{
+    tokens: any[];
+    tokensString: string;
+  } | null>(null);
   const [showDerivation, setShowDerivation] = useState(false);
   const [showParseTree, setShowParseTree] = useState(false);
+  const [showTokens, setShowTokens] = useState(false);
   const [isHeaderVisible, setIsHeaderVisible] = useState(false);
   const [isInputVisible, setIsInputVisible] = useState(false);
   const [isGrammarVisible, setIsGrammarVisible] = useState(false);
@@ -141,22 +148,38 @@ const Playground: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setInput(e.target.value);
     setResult(null);
+    setTokenResult(null);
     setShowDerivation(false);
     setShowParseTree(false);
+    setShowTokens(false);
   };
 
   const handleCheckSyntax = () => {
     if (input.trim() === "") {
       setResult({ isValid: false, message: "❌ Please enter an expression" });
+      setTokenResult(null);
       setIsResultsVisible(false);
       setTimeout(() => setIsResultsVisible(true), 100);
       return;
     }
     
-    const syntaxResult = checkSyntax2(input);
-    setResult(syntaxResult);
-    setShowDerivation(syntaxResult.isValid && !!syntaxResult.derivation);
-    setShowParseTree(syntaxResult.isValid && !!syntaxResult.parseTree);
+    try {
+      // Tokenize the input
+      const tokenizationResult = tokenizeExpression(input);
+      setTokenResult(tokenizationResult);
+      setShowTokens(true);
+      
+      // Parse the input
+      const syntaxResult = checkSyntax(input);
+      setResult(syntaxResult);
+      setShowDerivation(syntaxResult.isValid && !!syntaxResult.derivation);
+      setShowParseTree(syntaxResult.isValid && !!syntaxResult.parseTree);
+    } catch (e: any) {
+      setResult({ isValid: false, message: `❌ Tokenization Error: ${e.message}` });
+      setTokenResult(null);
+      setShowTokens(false);
+    }
+    
     setIsResultsVisible(false);
     setTimeout(() => setIsResultsVisible(true), 100);
   };
@@ -314,6 +337,14 @@ const Playground: React.FC = () => {
                 )}
               </div>
             </div>
+
+            {/* Tokenization Section */}
+            {tokenResult && showTokens && (
+              <TokenDisplay 
+                tokens={tokenResult.tokens}
+                tokensString={tokenResult.tokensString}
+              />
+            )}
 
             {/* Derivation Section */}
             {result.isValid && result.derivation && (
