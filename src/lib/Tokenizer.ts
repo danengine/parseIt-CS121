@@ -40,7 +40,10 @@ export class Tokenizer {
   private tokens: Token[] = [];
 
   constructor(text: string) {
-    this.text = text.replace(/\s+/g, ""); // Remove whitespace
+    this.text = text;
+    if (/\s/.test(this.text)) {
+      throw new SyntaxError("Expression contains whitespace - spaces are not allowed");
+    }
   }
 
   /**

@@ -325,16 +325,10 @@ const Playground: React.FC = () => {
                       {result.derivation.map((step, index) => (
                         <div 
                           key={index}
-                          className="flex items-center space-x-4 py-2"
+                          className="flex items-center py-2"
                         >
-                          <span 
-                            className="text-sm text-gray-400 w-8"
-                            style={{ fontFamily: "DM Mono, monospace" }}
-                          >
-                            {index + 1}.
-                          </span>
                           <code 
-                            className="text-teal-400 bg-gray-800 px-3 py-1 rounded text-sm"
+                            className="text-teal-400 bg-gray-800 px-3 py-2 rounded text-sm block w-full"
                             style={{ fontFamily: "DM Mono, monospace" }}
                           >
                             {step}
@@ -348,11 +342,11 @@ const Playground: React.FC = () => {
                         className="text-sm text-gray-300"
                         style={{ fontFamily: "DM Mono, monospace" }}
                       >
-                        <strong>How it works:</strong> This derivation shows how your expression 
-                        is parsed according to the combined arithmetic and regex grammar rules. Each step represents a 
-                        production rule being applied to transform the input into a valid parse tree structure. 
-                        The parser handles both arithmetic expressions (like "2 + 3 * 4") and regex patterns 
-                        (like "ab*|cd") using the same grammar hierarchy.
+                        <strong>Leftmost Derivation:</strong> This shows the step-by-step leftmost derivation 
+                        of your expression according to the formal grammar rules. Each step replaces only the 
+                        leftmost nonterminal (enclosed in angle brackets) with the appropriate grammar rule. 
+                        The derivation continues until all nonterminals are replaced with terminal symbols, 
+                        resulting in the final expression.
                       </p>
                     </div>
                   </div>

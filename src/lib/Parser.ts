@@ -3,6 +3,8 @@
  * Author: Danilo Eslawan
  */
 
+import { generateLeftmostDerivation } from "./LeftmostDerivation";
+
 interface ParseNode {
   type: string;
   value: string;
@@ -20,8 +22,11 @@ export class Parser {
   private currentInput: string = "";
 
   constructor(text: string) {
-    this.text = text.replace(/\s+/g, ""); // remove spaces
+    this.text = text;
     this.currentInput = this.text;
+    if (/\s/.test(this.text)) {
+      throw new SyntaxError("Expression contains whitespace - spaces are not allowed");
+    }
   }
 
   private peek(): string | null {
@@ -376,10 +381,14 @@ export function checkSyntax(expression: string): {
   try {
     const parser = new Parser(expression);
     const result = parser.parse();
+    
+    // Generate proper leftmost derivation
+    const leftmostDerivation = generateLeftmostDerivation(expression);
+    
     return {
       isValid: true,
       message: "✅ Syntax Correct",
-      derivation: result.derivation,
+      derivation: leftmostDerivation,
       parseTree: result.parseTree,
     };
   } catch (e: any) {
