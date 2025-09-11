@@ -40,7 +40,33 @@ export class Tokenizer {
   private tokens: Token[] = [];
 
   constructor(text: string) {
-    this.text = text.replace(/\s+/g, ""); // Remove whitespace
+    this.text = text;
+    // Check for whitespace and provide specific position information for all occurrences
+    const whitespaceMatches = Array.from(this.text.matchAll(/\s/g));
+    if (whitespaceMatches.length > 0) {
+      const positions = whitespaceMatches.map(match => {
+        const position = match.index!;
+        const whitespaceChar = match[0];
+        const charName = whitespaceChar === ' ' ? 'space' : 
+                        whitespaceChar === '\t' ? 'tab' : 
+                        whitespaceChar === '\n' ? 'newline' : 
+                        'whitespace character';
+        return `${charName} at position ${position + 1}`;
+      });
+      
+      let positionText;
+      if (positions.length === 1) {
+        positionText = positions[0];
+      } else {
+        // Extract just the position numbers
+        const allPositions = positions.map(p => p.split(' at position ')[1]).join(', ');
+        // Get the character type from the first position
+        const charType = positions[0].split(' at position ')[0];
+        positionText = `${charType} at positions ${allPositions}`;
+      }
+      
+      throw new SyntaxError(`Syntax invalid due to ${positionText}. Whitespace is not allowed.`);
+    }
   }
 
   /**
@@ -259,6 +285,6 @@ export function tokenizeExpression(expression: string): {
       tokensString: tokenizer.getTokensString()
     };
   } catch (e: any) {
-    throw new Error(`Tokenization failed: ${e.message}`);
+    throw new Error(e.message);
   }
 }

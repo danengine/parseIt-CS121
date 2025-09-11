@@ -128,6 +128,7 @@ const Playground: React.FC = () => {
   const [isInputVisible, setIsInputVisible] = useState(false);
   const [isGrammarVisible, setIsGrammarVisible] = useState(false);
   const [isResultsVisible, setIsResultsVisible] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     // Scroll to top when component mounts
@@ -175,7 +176,7 @@ const Playground: React.FC = () => {
       setShowDerivation(syntaxResult.isValid && !!syntaxResult.derivation);
       setShowParseTree(syntaxResult.isValid && !!syntaxResult.parseTree);
     } catch (e: any) {
-      setResult({ isValid: false, message: `❌ Tokenization Error: ${e.message}` });
+      setResult({ isValid: false, message: `❌ ${e.message}` });
       setTokenResult(null);
       setShowTokens(false);
     }
@@ -187,6 +188,19 @@ const Playground: React.FC = () => {
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") {
       handleCheckSyntax();
+    }
+  };
+
+  const handleCopyDerivation = async () => {
+    if (result?.derivation) {
+      const derivationText = result.derivation.join('\n');
+      try {
+        await navigator.clipboard.writeText(derivationText);
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy derivation:', err);
+      }
     }
   };
 
@@ -349,16 +363,46 @@ const Playground: React.FC = () => {
             {/* Derivation Section */}
             {result.isValid && result.derivation && (
               <div className="bg-gray-800 rounded-lg border border-gray-600 overflow-hidden">
-                <button
-                  onClick={() => setShowDerivation(!showDerivation)}
-                  className="w-full px-6 py-4 text-left flex justify-between items-center hover:bg-gray-700 transition-colors"
-                  style={{ fontFamily: "DM Mono, monospace" }}
-                >
-                  <span className="text-lg font-semibold">Derivation Tree</span>
-                  <span className="text-xl">
-                    {showDerivation ? "−" : "+"}
-                  </span>
-                </button>
+                <div className="px-6 py-4 bg-gray-700 border-b border-gray-600">
+                  <div className="flex items-center justify-between">
+                    <h4 
+                      className="text-lg font-semibold text-teal-400"
+                      style={{ fontFamily: "DM Mono, monospace" }}
+                    >
+                      Derivation Tree
+                    </h4>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={handleCopyDerivation}
+                        className="flex items-center space-x-2 px-3 py-1 bg-gray-600 hover:bg-gray-500 text-gray-300 rounded transition-colors text-sm"
+                        style={{ fontFamily: "DM Mono, monospace" }}
+                        title="Copy derivation to clipboard"
+                      >
+                        {copySuccess ? (
+                          <>
+                            <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                            <span>Copy</span>
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={() => setShowDerivation(!showDerivation)}
+                        className="text-xl hover:text-teal-400 transition-colors"
+                      >
+                        {showDerivation ? "−" : "+"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
                 
                 {showDerivation && (
                   <div className="px-6 py-4 bg-gray-700">
@@ -366,20 +410,23 @@ const Playground: React.FC = () => {
                       {result.derivation.map((step, index) => (
                         <div 
                           key={index}
-                          className="flex items-center space-x-4 py-2"
+                          className="flex items-center justify-between p-3 bg-gray-800 rounded-lg"
                         >
-                          <span 
-                            className="text-sm text-gray-400 w-8"
-                            style={{ fontFamily: "DM Mono, monospace" }}
-                          >
-                            {index + 1}.
-                          </span>
-                          <code 
-                            className="text-teal-400 bg-gray-800 px-3 py-1 rounded text-sm"
-                            style={{ fontFamily: "DM Mono, monospace" }}
-                          >
-                            {step}
-                          </code>
+                          <div className="flex items-center space-x-4">
+                            <span 
+                              className="text-xs text-gray-500 w-6"
+                              style={{ fontFamily: "DM Mono, monospace" }}
+                            >
+                              {index + 1}.
+                            </span>
+                            
+                            <code 
+                              className="text-white text-sm"
+                              style={{ fontFamily: "DM Mono, monospace" }}
+                            >
+                              {step}
+                            </code>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -389,11 +436,11 @@ const Playground: React.FC = () => {
                         className="text-sm text-gray-300"
                         style={{ fontFamily: "DM Mono, monospace" }}
                       >
-                        <strong>How it works:</strong> This derivation shows how your expression 
-                        is parsed according to the combined arithmetic and regex grammar rules. Each step represents a 
-                        production rule being applied to transform the input into a valid parse tree structure. 
-                        The parser handles both arithmetic expressions (like "2+3*4") and regex patterns 
-                        (like "ab*|cd") using the same grammar hierarchy. Note that whitespace is not allowed in expressions.
+                        <strong>Derivation Tree:</strong> This shows the step-by-step leftmost derivation 
+                        of your expression according to the formal grammar rules. Each step replaces only the 
+                        leftmost nonterminal (enclosed in angle brackets) with the appropriate grammar rule. 
+                        The derivation continues until all nonterminals are replaced with terminal symbols, 
+                        resulting in the final expression.
                       </p>
                     </div>
                   </div>
