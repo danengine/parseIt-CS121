@@ -429,6 +429,9 @@ const Playground: React.FC = () => {
                 <div style={{ fontFamily: "DM Mono, monospace" }}>
                   <code className="text-teal-400">char</code> → a | b | c | ... | z
                 </div>
+                <div style={{ fontFamily: "DM Mono, monospace" }}>
+                  <code className="text-teal-400">digit</code> → 0 | 1 | 2 | ... | 9
+                </div>
               </div>
             </div>
             

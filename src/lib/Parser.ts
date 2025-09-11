@@ -41,6 +41,13 @@ export class Parser {
   // <expr> ::= <union>
   private expr(): ParseNode {
     this.addDerivation("expr", "union", this.derivation.length);
+    
+    // For arithmetic expressions, skip union and go directly to arith
+    if (this.isArithmeticExpression()) {
+      this.addDerivation("expr", "arith (arithmetic mode)", this.derivation.length);
+      return this.arith();
+    }
+    
     return this.union();
   }
 
@@ -51,6 +58,13 @@ export class Parser {
       "concat | union | concat",
       this.derivation.length
     );
+
+    // Check if this is an arithmetic expression (contains arithmetic operators)
+    // If so, skip concat and go directly to arith
+    if (this.isArithmeticExpression()) {
+      this.addDerivation("union", "arith (arithmetic mode)", this.derivation.length);
+      return this.arith();
+    }
 
     let leftNode = this.concat();
 
@@ -88,9 +102,10 @@ export class Parser {
 
     let leftNode = this.arith();
 
-    // Allow concatenation for regex patterns: when next token is a character
-    // This allows "ab", "ab*", "a(b)", etc. but prevents "a3", "3a"
-    while (this.peek() && this.isChar(this.peek()!)) {
+    // Allow concatenation for both regex patterns and arithmetic expressions
+    // Regex: when next token is a character (allows "ab", "ab*", "a(b)", etc.)
+    // Arithmetic: when next token is a number or opening parenthesis (allows "(1)*(2)", "2(3)", etc.)
+    while (this.peek() && (this.isChar(this.peek()!) || this.isDigit(this.peek()!) || this.peek() === "(")) {
       const rightNode = this.arith();
 
       leftNode = this.createParseNode(
@@ -185,8 +200,9 @@ export class Parser {
 
     const baseNode = this.base();
 
-    // Only allow Kleene star on characters, not numbers
-    if (this.peek() === "*" && this.isCharNode(baseNode)) {
+    // Only allow Kleene star on characters, not numbers or parenthesized expressions
+    // In arithmetic mode, * should be handled by the term() method for multiplication
+    if (this.peek() === "*" && this.isCharNode(baseNode) && !this.isArithmeticExpression()) {
       this.consume();
 
       const repetitionNode = this.createParseNode(
@@ -305,6 +321,33 @@ export class Parser {
         this.isChar(node.value)) ||
       (node.type === "base" && node.value === "()") // Allow Kleene star on parenthesized expressions
     );
+  }
+
+  private isArithmeticExpression(): boolean {
+    // Check if the expression contains arithmetic operators (+, -, *, /)
+    // But be more specific: look for multiplication/division that's not Kleene star
+    // Kleene star: (expr)* or char* (followed by end or non-arithmetic)
+    // Arithmetic: (expr)*(expr) or number*number (multiplication between expressions)
+    
+    // First check if there are any arithmetic operators
+    if (!/[+\-*/]/.test(this.text)) {
+      return false;
+    }
+    
+    // Look for multiplication patterns that indicate arithmetic:
+    // 1. (expr)*(expr) - multiplication between parenthesized expressions
+    // 2. number*number - multiplication between numbers
+    // 3. (expr)*number or number*(expr) - mixed multiplication
+    // 4. Any + or - operators (always arithmetic)
+    // 5. / operator (always arithmetic)
+    
+    if (/[+\-/]/.test(this.text)) {
+      return true; // +, -, / are always arithmetic
+    }
+    
+    // For * operator, check if it's multiplication (not Kleene star)
+    const multiplicationPattern = /\([^)]+\)\s*\*\s*\([^)]+\)|\([^)]+\)\s*\*\s*\d+|\d+\s*\*\s*\([^)]+\)|\d+\s*\*\s*\d+/;
+    return multiplicationPattern.test(this.text);
   }
 
   private addDerivation(rule: string, input: string, step: number = 0) {
