@@ -22,8 +22,8 @@ export const TokenType = {
   KLEENE_STAR: "KLEENE_STAR", // * (when used as regex operator)
   
   // Literals
-  NUMBER: "NUMBER",
-  CHAR: "CHAR",
+  DIGIT: "DIGIT", // 0-9
+  CHAR: "CHAR", // a-z
   
   // Structural
   LPAREN: "LPAREN", // (
@@ -76,28 +76,14 @@ export class Tokenizer {
   }
 
   /**
-   * Tokenize a number (integer or decimal)
+   * Tokenize a single digit (0-9)
    */
-  private tokenizeNumber(): Token {
+  private tokenizeDigit(): Token {
     const startPos = this.pos;
-    let value = "";
-
-    // Parse integer part
-    while (this.peek() && this.isDigit(this.peek()!)) {
-      value += this.consume();
-    }
-
-    // Parse decimal part if present
-    if (this.peek() === ".") {
-      value += this.consume(); // consume the "."
-      
-      while (this.peek() && this.isDigit(this.peek()!)) {
-        value += this.consume();
-      }
-    }
+    const value = this.consume();
 
     return {
-      type: TokenType.NUMBER,
+      type: TokenType.DIGIT,
       value,
       position: startPos
     };
@@ -127,8 +113,8 @@ export class Tokenizer {
     
     const prevToken = this.tokens[this.tokens.length - 1];
     
-    // If previous token is a number or closing parenthesis, likely multiplication
-    if (prevToken.type === TokenType.NUMBER || prevToken.type === TokenType.RPAREN) {
+    // If previous token is a digit or closing parenthesis, likely multiplication
+    if (prevToken.type === TokenType.DIGIT || prevToken.type === TokenType.RPAREN) {
       return true;
     }
     
@@ -222,7 +208,7 @@ export class Tokenizer {
 
         default:
           if (this.isDigit(char)) {
-            this.tokens.push(this.tokenizeNumber());
+            this.tokens.push(this.tokenizeDigit());
           } else if (this.isChar(char)) {
             this.tokens.push(this.tokenizeChar());
           } else {

@@ -19,7 +19,7 @@ interface TokenDisplayProps {
 const TokenDisplay: React.FC<TokenDisplayProps> = ({ tokens, tokensString }) => {
   const getTokenTypeColor = (type: string): string => {
     switch (type) {
-      case TokenType.NUMBER:
+      case TokenType.DIGIT:
         return "text-blue-400";
       case TokenType.CHAR:
         return "text-green-400";
@@ -45,8 +45,8 @@ const TokenDisplay: React.FC<TokenDisplayProps> = ({ tokens, tokensString }) => 
 
   const getTokenDescription = (type: string): string => {
     switch (type) {
-      case TokenType.NUMBER:
-        return "Number literal";
+      case TokenType.DIGIT:
+        return "Digit (0-9)";
       case TokenType.CHAR:
         return "Character literal";
       case TokenType.PLUS:
@@ -171,11 +171,12 @@ const TokenDisplay: React.FC<TokenDisplayProps> = ({ tokens, tokensString }) => 
             style={{ fontFamily: "DM Mono, monospace" }}
           >
             <strong>Tokenization:</strong> This shows how your input is broken down into individual tokens 
-            before parsing. Each token represents a meaningful unit (number, operator, character, etc.) 
+            before parsing. Each token represents a meaningful unit (digit, operator, character, etc.) 
             that the parser will process. The tokenizer automatically distinguishes between multiplication 
-            (*) and Kleene star (*) based on context.
+            (*) and Kleene star (*) based on context. Decimals like 1.5 are tokenized as separate tokens: 
+            digit, dot, digit.
             <br/><br/>
-            <strong>Token Types:</strong> Numbers (blue), Characters (green), Arithmetic operators (orange), 
+            <strong>Token Types:</strong> Digits (blue), Characters (green), Arithmetic operators (orange), 
             Regex operators (purple), Parentheses (yellow), Special symbols (gray).
           </p>
         </div>
