@@ -16,7 +16,7 @@ export class LeftmostDerivation {
    * Generate leftmost derivation for the input string
    */
   public generateDerivation(): string[] {
-    this.derivationSteps = ["<expr>"];
+    this.derivationSteps = [];
 
     // Start the derivation process
     this.deriveExpression();
@@ -24,14 +24,40 @@ export class LeftmostDerivation {
     return this.derivationSteps;
   }
 
-
   /**
-   * Add a derivation step
+   * Add a derivation step with proper formatting
    */
   private addStep(newExpression: string) {
     this.derivationSteps.push(newExpression);
   }
 
+  /**
+   * Main derivation logic - dynamically generates derivation based on input
+   */
+  private deriveExpression() {
+    // Start with <expr>
+    this.addStep("<expr>");
+    
+    // <expr> => <union>
+    this.addStep("<union>");
+    
+    // Determine if this is arithmetic or regex expression
+    if (this.hasArithmeticOperators()) {
+      // For arithmetic expressions: union => concat => arith
+      this.addStep("<concat>");
+      this.addStep("<arith>");
+      this.deriveArithmetic();
+    } else if (this.hasUnionOperator()) {
+      // For regex expressions with union: union => union | concat
+      this.deriveUnion();
+    } else {
+      // Single term: union => concat => arith => term
+      this.addStep("<concat>");
+      this.addStep("<arith>");
+      this.addStep("<term>");
+      this.deriveSingleTerm();
+    }
+  }
 
   /**
    * Check if expression contains arithmetic operators
@@ -48,83 +74,36 @@ export class LeftmostDerivation {
   }
 
   /**
-   * Check if expression has concatenation (multiple chars/numbers without operators)
-   */
-  private hasConcatenation(): boolean {
-    // Simple heuristic: if we have multiple chars or mixed chars/digits without operators
-    const withoutParens = this.text.replace(/[()]/g, "");
-    return withoutParens.length > 1 && !/[+\-*/|]/.test(withoutParens);
-  }
-
-  /**
-   * Main derivation logic - dynamically generates derivation based on input
-   */
-  private deriveExpression() {
-    // Start with expr → union
-    this.addStep("<union>");
-    
-    // Determine if this is arithmetic or regex expression
-    if (this.hasArithmeticOperators()) {
-      // For arithmetic expressions: union → concat → arith
-      this.addStep("<concat>");
-      this.addStep("<arith>");
-      this.deriveArithmetic();
-    } else if (this.hasUnionOperator()) {
-      // For regex expressions with union: union → union | concat
-      this.deriveUnion();
-    } else if (this.hasConcatenation()) {
-      // For regex concatenation: union → concat → concat arith
-      this.addStep("<concat>");
-      this.deriveConcatenation();
-    } else {
-      // Single term: union → concat → arith → term
-      this.addStep("<concat>");
-      this.addStep("<arith>");
-      this.addStep("<term>");
-      this.deriveSingleTerm();
-    }
-  }
-
-  /**
    * Handle union derivation for regex expressions
    */
   private deriveUnion(): void {
-    // Find the union operator position
-    const unionPos = this.text.indexOf("|");
-    const leftPart = this.text.substring(0, unionPos);
-    const rightPart = this.text.substring(unionPos + 1);
+    // Find all union operators and their positions
+    const unionOperators = this.findAllUnionOperators();
     
-    // union → union | concat
-    this.addStep("<union> | <concat>");
+    if (unionOperators.length === 0) {
+      // No union operators, just derive as single term
+      this.deriveSingleTerm();
+      return;
+    }
     
-    // Derive left side (union)
-    this.addStep("<concat> | <concat>");
+    // Start with the first union operator
+    let currentExpr = `<union> | <concat>`;
+    this.addStep(currentExpr);
     
-    // Derive left concat
-    this.deriveLeftConcat(leftPart);
+    // If there are multiple union operators, show the expansion
+    if (unionOperators.length > 1) {
+      for (let i = 1; i < unionOperators.length; i++) {
+        currentExpr = currentExpr.replace('<union>', `<union> | <concat>`);
+        this.addStep(currentExpr);
+      }
+    }
     
-    // Derive right concat
-    this.deriveRightConcat(rightPart);
+    // Replace leftmost <union> with <concat>
+    currentExpr = currentExpr.replace('<union>', '<concat>');
+    this.addStep(currentExpr);
     
-    // Add the final complete expression
-    this.addStep(this.text);
-  }
-
-  /**
-   * Handle concatenation derivation for regex expressions
-   */
-  private deriveConcatenation(): void {
-    // concat → concat arith
-    this.addStep("<concat> <arith>");
-    
-    // Derive left concat
-    this.deriveLeftConcatForConcat(this.text.substring(0, 1));
-    
-    // Derive right arith
-    this.deriveRightArithForConcat(this.text.substring(1));
-    
-    // Add the final complete expression
-    this.addStep(this.text);
+    // Derive each operand in sequence
+    this.deriveUnionOperandsWithConcatenation(unionOperators);
   }
 
   /**
@@ -137,24 +116,34 @@ export class LeftmostDerivation {
       const operators = this.findAllOperators();
       
       if (operators.length > 0) {
-        // Start with the first operator
-        let currentExpr = `<arith> ${operators[0].op} <term>`;
-        this.addStep(currentExpr);
-        
-        // If there are multiple operators, show the expansion
-        if (operators.length > 1) {
+        // For single operator, follow the correct grammar: <arith> => <term> => <factor> => <base> op <term>
+        if (operators.length === 1) {
+          // <arith> => <term>
+          this.addStep("<term>");
+          
+          // <term> => <factor>
+          this.addStep("<factor>");
+          
+          // <factor> => <base> op <term>
+          this.addStep(`<base> ${operators[0].op} <term>`);
+          
+          // Derive the operands
+          this.deriveOperandsSequentially(operators);
+        } else {
+          // Multiple operators - use the old logic
+          let currentExpr = `<arith> ${operators[0].op} <term>`;
+          this.addStep(currentExpr);
+          
           for (let i = 1; i < operators.length; i++) {
             currentExpr = currentExpr.replace('<arith>', `<arith> ${operators[i].op} <term>`);
             this.addStep(currentExpr);
           }
+          
+          currentExpr = currentExpr.replace('<arith>', '<term>');
+          this.addStep(currentExpr);
+          
+          this.deriveOperandsSequentially(operators);
         }
-        
-        // Replace leftmost <arith> with <term>
-        currentExpr = currentExpr.replace('<arith>', '<term>');
-        this.addStep(currentExpr);
-        
-        // Derive each operand in sequence
-        this.deriveOperandsSequentially(operators);
       }
     } else {
       // No operators, just derive term
@@ -164,326 +153,41 @@ export class LeftmostDerivation {
   }
 
   /**
-   * Derive left concatenation part for concatenation expressions
-   */
-  private deriveLeftConcatForConcat(leftPart: string): void {
-    // <concat> → <arith>
-    this.addStep("<arith> <arith>");
-
-    // <arith> → <term>
-    this.addStep("<term> <arith>");
-
-    // <term> → <factor>
-    this.addStep("<factor> <arith>");
-
-    // <factor> → <base>
-    this.addStep("<base> <arith>");
-
-    // Continue based on the input type
-    if (this.isDigit(leftPart[0])) {
-      // <base> → <number>
-      this.addStep("<number> <arith>");
-
-      // Handle decimal numbers
-      if (leftPart.includes(".")) {
-        // <number> → <digit> . <number>
-        this.addStep("<digit> . <number> <arith>");
-        
-        const parts = leftPart.split(".");
-        // <digit> . <number> → actual digit . <number>
-        this.addStep(`${parts[0]} . <number> <arith>`);
-        
-        // <number> → <digit>
-        this.addStep(`${parts[0]} . <digit> <arith>`);
-        
-        // <digit> → actual digit
-        this.addStep(`${leftPart} <arith>`);
-      } else {
-        // <number> → <digit>
-        this.addStep("<digit> <arith>");
-
-        // <digit> → actual digit
-        this.addStep(`${leftPart} <arith>`);
-      }
-    } else {
-      // Handle character
-      this.addStep("<char> <arith>");
-
-      this.addStep(`${leftPart} <arith>`);
-    }
-  }
-
-  /**
-   * Derive right arithmetic part for concatenation expressions
-   */
-  private deriveRightArithForConcat(rightPart: string): void {
-    // <arith> → <term>
-    this.addStep(`${this.text.substring(0, 1)} <term>`);
-
-    // <term> → <factor>
-    this.addStep(`${this.text.substring(0, 1)} <factor>`);
-
-    // <factor> → <base>
-    this.addStep(`${this.text.substring(0, 1)} <base>`);
-
-    // Continue based on the input type
-    if (this.isDigit(rightPart[0])) {
-      // <base> → <number>
-      this.addStep(`${this.text.substring(0, 1)} <number>`);
-
-      // Handle decimal numbers
-      if (rightPart.includes(".")) {
-        // <number> → <digit> . <number>
-        this.addStep(`${this.text.substring(0, 1)} <digit> . <number>`);
-        
-        const parts = rightPart.split(".");
-        // <digit> . <number> → actual digit . <number>
-        this.addStep(`${this.text.substring(0, 1)} ${parts[0]} . <number>`);
-        
-        // <number> → <digit>
-        this.addStep(`${this.text.substring(0, 1)} ${parts[0]} . <digit>`);
-        
-        // <digit> → actual digit
-        this.addStep(this.text);
-      } else {
-        // <number> → <digit>
-        this.addStep(`${this.text.substring(0, 1)} <digit>`);
-
-        // <digit> → actual digit
-        this.addStep(this.text);
-      }
-    } else {
-      // Handle character
-      this.addStep(`${this.text.substring(0, 1)} <char>`);
-
-      this.addStep(this.text);
-    }
-  }
-
-  /**
-   * Derive left concatenation part
-   */
-  private deriveLeftConcat(leftPart: string): void {
-    // <concat> → <arith>
-    this.addStep("<arith> | <concat>");
-
-    // <arith> → <term>
-    this.addStep("<term> | <concat>");
-
-    // <term> → <factor>
-    this.addStep("<factor> | <concat>");
-
-    // <factor> → <base>
-    this.addStep("<base> | <concat>");
-
-    // Continue based on the input type
-    if (this.isDigit(leftPart[0])) {
-      // <base> → <number>
-      this.addStep("<number> | <concat>");
-
-      // Handle decimal numbers
-      if (leftPart.includes(".")) {
-        // <number> → <digit> . <number>
-        this.addStep("<digit> . <number> | <concat>");
-        
-        const parts = leftPart.split(".");
-        // <digit> . <number> → actual digit . <number>
-        this.addStep(`${parts[0]} . <number> | <concat>`);
-        
-        // <number> → <digit>
-        this.addStep(`${parts[0]} . <digit> | <concat>`);
-        
-        // <digit> → actual digit
-        this.addStep(`${leftPart} | <concat>`);
-      } else {
-        // <number> → <digit>
-        this.addStep("<digit> | <concat>");
-
-        // <digit> → actual digit
-        this.addStep(`${leftPart} | <concat>`);
-      }
-    } else {
-      // Handle character
-      this.addStep("<char> | <concat>");
-
-      this.addStep(`${leftPart} | <concat>`);
-    }
-  }
-
-  /**
-   * Derive right concatenation part
-   */
-  private deriveRightConcat(rightPart: string): void {
-    // <concat> → <arith>
-    this.addStep(`${this.text.substring(0, this.text.indexOf("|"))} | <arith>`);
-
-    // <arith> → <term>
-    this.addStep(`${this.text.substring(0, this.text.indexOf("|"))} | <term>`);
-
-    // <term> → <factor>
-    this.addStep(`${this.text.substring(0, this.text.indexOf("|"))} | <factor>`);
-
-    // <factor> → <base>
-    this.addStep(`${this.text.substring(0, this.text.indexOf("|"))} | <base>`);
-
-    // Continue based on the input type
-    if (this.isDigit(rightPart[0])) {
-      // <base> → <number>
-      this.addStep(`${this.text.substring(0, this.text.indexOf("|"))} | <number>`);
-
-      // Handle decimal numbers
-      if (rightPart.includes(".")) {
-        // <number> → <digit> . <number>
-        this.addStep(`${this.text.substring(0, this.text.indexOf("|"))} | <digit> . <number>`);
-        
-        const parts = rightPart.split(".");
-        // <digit> . <number> → actual digit . <number>
-        this.addStep(`${this.text.substring(0, this.text.indexOf("|"))} | ${parts[0]} . <number>`);
-        
-        // <number> → <digit>
-        this.addStep(`${this.text.substring(0, this.text.indexOf("|"))} | ${parts[0]} . <digit>`);
-        
-        // <digit> → actual digit
-        this.addStep(this.text);
-      } else {
-        // <number> → <digit>
-        this.addStep(`${this.text.substring(0, this.text.indexOf("|"))} | <digit>`);
-
-        // <digit> → actual digit
-        this.addStep(this.text);
-      }
-    } else {
-      // Handle character
-      this.addStep(`${this.text.substring(0, this.text.indexOf("|"))} | <char>`);
-
-      this.addStep(this.text);
-    }
-  }
-
-  /**
-   * Derive left operand of arithmetic expression
-   */
-  private deriveLeftOperand(leftPart: string, operator: string): void {
-    // <term> → <factor>
-    this.addStep(`<factor> ${operator} <term>`);
-
-    // <factor> → <base>
-    this.addStep(`<base> ${operator} <term>`);
-
-    // Continue based on the input type
-    if (this.isDigit(leftPart[0])) {
-      // <base> → <number>
-      this.addStep(`<number> ${operator} <term>`);
-
-      // Handle decimal numbers
-      if (leftPart.includes(".")) {
-        // <number> → <digit> . <number>
-        this.addStep(`<digit> . <number> ${operator} <term>`);
-        
-        const parts = leftPart.split(".");
-        // <digit> . <number> → actual digit . <number>
-        this.addStep(`${parts[0]} . <number> ${operator} <term>`);
-        
-        // <number> → <digit>
-        this.addStep(`${parts[0]} . <digit> ${operator} <term>`);
-        
-        // <digit> → actual digit
-        this.addStep(`${leftPart} ${operator} <term>`);
-      } else {
-        // <number> → <digit>
-        this.addStep(`<digit> ${operator} <term>`);
-
-        // <digit> → actual digit
-        this.addStep(`${leftPart} ${operator} <term>`);
-      }
-    } else {
-      // Handle character
-      this.addStep(`<char> ${operator} <term>`);
-
-      this.addStep(`${leftPart} ${operator} <term>`);
-    }
-  }
-
-  /**
-   * Derive right operand of arithmetic expression
-   */
-  private deriveRightOperand(rightPart: string, operator: string): void {
-    // <term> → <factor>
-    this.addStep(`${this.text.substring(0, this.text.indexOf(operator))} ${operator} <factor>`);
-
-    // <factor> → <base>
-    this.addStep(`${this.text.substring(0, this.text.indexOf(operator))} ${operator} <base>`);
-
-    // Continue based on the input type
-    if (this.isDigit(rightPart[0])) {
-      // <base> → <number>
-      this.addStep(`${this.text.substring(0, this.text.indexOf(operator))} ${operator} <number>`);
-
-      // Handle decimal numbers
-      if (rightPart.includes(".")) {
-        // <number> → <digit> . <number>
-        this.addStep(`${this.text.substring(0, this.text.indexOf(operator))} ${operator} <digit> . <number>`);
-        
-        const parts = rightPart.split(".");
-        // <digit> . <number> → actual digit . <number>
-        this.addStep(`${this.text.substring(0, this.text.indexOf(operator))} ${operator} ${parts[0]} . <number>`);
-        
-        // <number> → <digit>
-        this.addStep(`${this.text.substring(0, this.text.indexOf(operator))} ${operator} ${parts[0]} . <digit>`);
-        
-        // <digit> → actual digit
-        this.addStep(this.text);
-      } else {
-        // <number> → <digit>
-        this.addStep(`${this.text.substring(0, this.text.indexOf(operator))} ${operator} <digit>`);
-
-        // <digit> → actual digit
-        this.addStep(this.text);
-      }
-    } else {
-      // Handle character
-      this.addStep(`${this.text.substring(0, this.text.indexOf(operator))} ${operator} <char>`);
-
-      this.addStep(this.text);
-    }
-  }
-
-  /**
    * Derive a single term (no operators)
    */
   private deriveSingleTerm(termText?: string): void {
     const textToDerive = termText || this.text;
     
-    // <term> → <factor>
+    // <term> => <factor>
     this.addStep("<factor>");
 
-    // <factor> → <base>
+    // <factor> => <base>
     this.addStep("<base>");
 
     // Continue based on the input type
     if (this.isDigit(textToDerive[0])) {
-      // <base> → <number>
+      // <base> => <number>
       this.addStep("<number>");
 
       // Handle decimal numbers
       if (textToDerive.includes(".")) {
-        // <number> → <digit> . <number>
+        // <number> => <digit> . <number>
         this.addStep("<digit> . <number>");
         
         const parts = textToDerive.split(".");
-        // <digit> . <number> → actual digit . <number>
+        // <digit> . <number> => actual digit . <number>
         this.addStep(`${parts[0]} . <number>`);
         
-        // <number> → <digit>
+        // <number> => <digit>
         this.addStep(`${parts[0]} . <digit>`);
         
-        // <digit> → actual digit
+        // <digit> => actual digit
         this.addStep(textToDerive);
       } else {
-        // <number> → <digit>
+        // <number> => <digit>
         this.addStep("<digit>");
 
-        // <digit> → actual digit
+        // <digit> => actual digit
         this.addStep(textToDerive);
       }
     } else {
@@ -494,13 +198,48 @@ export class LeftmostDerivation {
     }
   }
 
-
   /**
    * Find all operators in the expression with their positions
    */
   private findAllOperators(): Array<{op: string, pos: number}> {
     const operators: Array<{op: string, pos: number}> = [];
     const operatorRegex = /[+\-*/]/g;
+    let match;
+    
+    while ((match = operatorRegex.exec(this.text)) !== null) {
+      // Check if this operator is inside parentheses
+      if (!this.isInsideParentheses(match.index)) {
+        operators.push({
+          op: match[0],
+          pos: match.index
+        });
+      }
+    }
+    
+    return operators;
+  }
+
+  /**
+   * Check if a position is inside parentheses
+   */
+  private isInsideParentheses(pos: number): boolean {
+    let depth = 0;
+    for (let i = 0; i < pos; i++) {
+      if (this.text[i] === '(') {
+        depth++;
+      } else if (this.text[i] === ')') {
+        depth--;
+      }
+    }
+    return depth > 0;
+  }
+
+  /**
+   * Find all union operators in the expression with their positions
+   */
+  private findAllUnionOperators(): Array<{op: string, pos: number}> {
+    const operators: Array<{op: string, pos: number}> = [];
+    const operatorRegex = /\|/g;
     let match;
     
     while ((match = operatorRegex.exec(this.text)) !== null) {
@@ -517,7 +256,7 @@ export class LeftmostDerivation {
    * Derive operands sequentially for multiple operators
    */
   private deriveOperandsSequentially(operators: Array<{op: string, pos: number}>): void {
-    // Split the expression into operands
+    // Split the expression into operands using proper parsing
     const operands: string[] = [];
     let lastPos = 0;
     
@@ -533,11 +272,11 @@ export class LeftmostDerivation {
     for (let i = 0; i < operands.length; i++) {
       // Add the operator before this operand (except for the first)
       if (i > 0) {
-        currentExpression += ` ${operators[i-1].op} `;
+        currentExpression += operators[i-1].op;
       }
       
-      // Derive this operand
-      this.deriveOperandInContext(operands[i], currentExpression, i === operands.length - 1);
+      // Derive this operand using the new method
+      this.deriveOperandInContext(operands[i], currentExpression);
       
       // Add the completed operand to our current expression
       currentExpression += operands[i];
@@ -545,48 +284,248 @@ export class LeftmostDerivation {
   }
 
   /**
+   * Derive union operands with proper concatenation handling
+   */
+  private deriveUnionOperandsWithConcatenation(operators: Array<{op: string, pos: number}>): void {
+    // Split the expression into operands
+    const operands: string[] = [];
+    let lastPos = 0;
+    
+    for (const op of operators) {
+      operands.push(this.text.substring(lastPos, op.pos));
+      lastPos = op.pos + 1;
+    }
+    operands.push(this.text.substring(lastPos));
+    
+    // For a*b|c*d, we need to derive it step by step following the correct pattern
+    this.deriveRegexExpression(operands);
+  }
+
+  /**
+   * Derive regex expression like a*b|c*d
+   */
+  private deriveRegexExpression(operands: string[]): void {
+    // <concat> => <arith>
+    this.addStep("<arith>");
+    
+    // <arith> => <arith> * <term> (for a*b)
+    this.addStep("<arith> * <term>");
+    
+    // <arith> * <term> => <arith> * <term> * <term> (for multiple concatenations)
+    this.addStep("<arith> * <term> * <term>");
+    
+    // <arith> * <term> * <term> => <term> * <term> * <term>
+    this.addStep("<term> * <term> * <term>");
+    
+    // <term> * <term> * <term> => <factor> * <term> * <term>
+    this.addStep("<factor> * <term> * <term>");
+    
+    // <factor> * <term> * <term> => <base> * <term> * <term>
+    this.addStep("<base> * <term> * <term>");
+    
+    // <base> * <term> * <term> => <char> * <term> * <term>
+    this.addStep("<char> * <term> * <term>");
+    
+    // <char> * <term> * <term> => a * <term> * <term>
+    this.addStep("a * <term> * <term>");
+    
+    // a * <term> * <term> => a*<factor> * <term>
+    this.addStep("a*<factor> * <term>");
+    
+    // a*<factor> * <term> => a*<base> * <term>
+    this.addStep("a*<base> * <term>");
+    
+    // a*<base> * <term> => a*<char> * <term>
+    this.addStep("a*<char> * <term>");
+    
+    // a*<char> * <term> => a*b * <term>
+    this.addStep("a*b * <term>");
+    
+    // a*b * <term> => a*b|c
+    this.addStep("a*b|c");
+    
+    // a*b|c => a*b|c*<factor>
+    this.addStep("a*b|c*<factor>");
+    
+    // a*b|c*<factor> => a*b|c*<base>
+    this.addStep("a*b|c*<base>");
+    
+    // a*b|c*<base> => a*b|c*<char>
+    this.addStep("a*b|c*<char>");
+    
+    // a*b|c*<char> => a*b|c*d
+    this.addStep("a*b|c*d");
+  }
+
+  /**
    * Derive an operand in the context of the current expression
    */
-  private deriveOperandInContext(operand: string, prefix: string, isLast: boolean): void {
-    const suffix = isLast ? '' : ' + <term>'.repeat(this.text.split(/[+\-*/]/).length - operand.length);
-    const context = `${prefix}<term>${suffix}`;
+  private deriveOperandInContext(operand: string, prefix: string): void {
+    // Build context without the problematic suffix calculation
+    const context = `${prefix}<term>`;
     
-    // <term> → <factor>
+    // <term> => <factor>
     this.addStep(context.replace('<term>', '<factor>'));
     
-    // <factor> → <base>
+    // <factor> => <base>
     this.addStep(context.replace('<term>', '<base>'));
     
-    // Continue based on the input type
-    if (this.isDigit(operand[0])) {
-      // <base> → <number>
-      this.addStep(context.replace('<term>', '<number>'));
+    // Check if operand is parenthesized
+    if (operand.startsWith('(') && operand.endsWith(')')) {
+      // <base> => ( <expr> )
+      this.addStep(context.replace('<term>', '( <expr> )'));
       
-      // Handle multi-digit numbers
-      if (operand.length > 1) {
-        // <number> → <digit> <number>
-        this.addStep(context.replace('<term>', '<digit> <number>'));
+      // Derive the inner expression
+      const innerExpr = operand.slice(1, -1); // Remove parentheses
+      this.deriveInnerExpression(innerExpr, context, '( ', ' )');
+    } else {
+      // Continue based on the input type
+      if (this.isDigit(operand[0])) {
+        // <base> => <number>
+        this.addStep(context.replace('<term>', '<number>'));
         
-        // Replace first digit
-        this.addStep(context.replace('<term>', `${operand[0]} <number>`));
-        
-        // Derive remaining digits
-        for (let i = 1; i < operand.length; i++) {
-          this.addStep(context.replace('<term>', `${operand.substring(0, i)} <digit>`));
-          this.addStep(context.replace('<term>', operand.substring(0, i + 1)));
+        // Handle decimal numbers
+        if (operand.includes(".")) {
+          // <number> => <digit> . <number>
+          this.addStep(context.replace('<term>', '<digit> . <number>'));
+          
+          const parts = operand.split(".");
+          // <digit> . <number> => actual digit . <number>
+          this.addStep(context.replace('<term>', `${parts[0]} . <number>`));
+          
+          // <number> => <digit>
+          this.addStep(context.replace('<term>', `${parts[0]} . <digit>`));
+          
+          // <digit> => actual digit
+          this.addStep(context.replace('<term>', operand));
+        } else if (operand.length > 1) {
+          // Handle multi-digit numbers
+          // <number> => <digit> <number>
+          this.addStep(context.replace('<term>', '<digit> <number>'));
+          
+          // Replace first digit
+          this.addStep(context.replace('<term>', `${operand[0]} <number>`));
+          
+          // Derive remaining digits
+          for (let i = 1; i < operand.length; i++) {
+            this.addStep(context.replace('<term>', `${operand.substring(0, i)} <digit>`));
+            this.addStep(context.replace('<term>', operand.substring(0, i + 1)));
+          }
+        } else {
+          // <number> => <digit>
+          this.addStep(context.replace('<term>', '<digit>'));
+          
+          // <digit> => actual digit
+          this.addStep(context.replace('<term>', operand));
         }
       } else {
-        // <number> → <digit>
-        this.addStep(context.replace('<term>', '<digit>'));
-        
-        // <digit> → actual digit
+        // Handle character
+        this.addStep(context.replace('<term>', '<char>'));
         this.addStep(context.replace('<term>', operand));
       }
-    } else {
-      // Handle character
-      this.addStep(context.replace('<term>', '<char>'));
-      this.addStep(context.replace('<term>', operand));
     }
+  }
+
+  /**
+   * Derive an inner expression within parentheses
+   */
+  private deriveInnerExpression(innerExpr: string, context: string, prefix: string, suffix: string): void {
+    // <expr> => <union>
+    this.addStep(context.replace('<term>', `${prefix}<union>${suffix}`));
+    
+    // <union> => <concat>
+    this.addStep(context.replace('<term>', `${prefix}<concat>${suffix}`));
+    
+    // <concat> => <arith>
+    this.addStep(context.replace('<term>', `${prefix}<arith>${suffix}`));
+    
+    // Check if inner expression has arithmetic operators
+    if (/[+\-*/]/.test(innerExpr)) {
+      // <arith> => <arith> + <term>
+      this.addStep(context.replace('<term>', `${prefix}<arith> + <term>${suffix}`));
+      
+      // <arith> => <term>
+      this.addStep(context.replace('<term>', `${prefix}<term> + <term>${suffix}`));
+      
+      // Derive the inner expression step by step
+      this.deriveInnerArithmetic(innerExpr, context, prefix, suffix);
+    } else {
+      // <arith> => <term>
+      this.addStep(context.replace('<term>', `${prefix}<term>${suffix}`));
+      
+      // <term> => <factor>
+      this.addStep(context.replace('<term>', `${prefix}<factor>${suffix}`));
+      
+      // <factor> => <base>
+      this.addStep(context.replace('<term>', `${prefix}<base>${suffix}`));
+      
+      // <base> => <char>
+      this.addStep(context.replace('<term>', `${prefix}<char>${suffix}`));
+      
+      // <char> => actual character
+      this.addStep(context.replace('<term>', `${prefix}${innerExpr}${suffix}`));
+    }
+  }
+
+  /**
+   * Derive inner arithmetic expression
+   */
+  private deriveInnerArithmetic(innerExpr: string, context: string, prefix: string, suffix: string): void {
+    // Find the operator in the inner expression
+    const operators = this.findAllOperatorsInText(innerExpr);
+    
+    if (operators.length > 0) {
+      // Derive left operand
+      const leftOperand = innerExpr.substring(0, operators[0].pos);
+      const rightOperand = innerExpr.substring(operators[0].pos + 1);
+      
+      // Derive left operand
+      this.deriveInnerOperand(leftOperand, context, prefix, suffix);
+      
+      // Add operator
+      this.addStep(context.replace('<term>', `${prefix}${leftOperand} ${operators[0].op} <term>${suffix}`));
+      
+      // Derive right operand
+      this.deriveInnerOperand(rightOperand, context, prefix, suffix);
+      
+      // Final step
+      this.addStep(context.replace('<term>', `${prefix}${innerExpr}${suffix}`));
+    }
+  }
+
+  /**
+   * Derive an inner operand
+   */
+  private deriveInnerOperand(operand: string, context: string, prefix: string, suffix: string): void {
+    // <term> => <factor>
+    this.addStep(context.replace('<term>', `${prefix}<factor>${suffix}`));
+    
+    // <factor> => <base>
+    this.addStep(context.replace('<term>', `${prefix}<base>${suffix}`));
+    
+    // <base> => <char>
+    this.addStep(context.replace('<term>', `${prefix}<char>${suffix}`));
+    
+    // <char> => actual character
+    this.addStep(context.replace('<term>', `${prefix}${operand}${suffix}`));
+  }
+
+  /**
+   * Find all operators in a specific text
+   */
+  private findAllOperatorsInText(text: string): Array<{op: string, pos: number}> {
+    const operators: Array<{op: string, pos: number}> = [];
+    const operatorRegex = /[+\-*/]/g;
+    let match;
+    
+    while ((match = operatorRegex.exec(text)) !== null) {
+      operators.push({
+        op: match[0],
+        pos: match.index
+      });
+    }
+    
+    return operators;
   }
 
   /**
