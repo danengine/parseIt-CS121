@@ -41,37 +41,29 @@ export class Parser {
   // <expr> ::= <union>
   private expr(): ParseNode {
     this.addDerivation("expr", "union", this.derivation.length);
-    
-    // For arithmetic expressions, skip union and go directly to arith
-    if (this.isArithmeticExpression()) {
-      this.addDerivation("expr", "arith (arithmetic mode)", this.derivation.length);
-      return this.arith();
-    }
-    
     return this.union();
   }
 
   // <union> ::= <concat> | <union> "|" <concat>
   private union(): ParseNode {
-    this.addDerivation(
-      "union",
-      "concat | union | concat",
-      this.derivation.length
-    );
-
     // Check if this is an arithmetic expression (contains arithmetic operators)
     // If so, skip concat and go directly to arith
     if (this.isArithmeticExpression()) {
-      this.addDerivation("union", "arith (arithmetic mode)", this.derivation.length);
+      this.addDerivation("union", "arith", this.derivation.length);
       return this.arith();
     }
 
+    // Start with concat (first alternative)
+    this.addDerivation("union", "concat", this.derivation.length);
     let leftNode = this.concat();
 
     while (this.peek() === "|") {
       const operator = this.peek()!;
       this.consume();
 
+      // Show the union | concat derivation
+      this.addDerivation("union", `union | concat`, this.derivation.length);
+      
       const rightNode = this.concat();
 
       leftNode = this.createParseNode(
@@ -81,12 +73,6 @@ export class Parser {
         0.5, // lowest precedence for union
         "left"
       );
-
-      this.addDerivation(
-        "union",
-        `${leftNode.children[0].value} ${operator} ${rightNode.value}`,
-        this.derivation.length
-      );
     }
 
     return leftNode;
@@ -94,18 +80,17 @@ export class Parser {
 
   // <concat> ::= <arith> | <concat> <arith>
   private concat(): ParseNode {
-    this.addDerivation(
-      "concat",
-      "arith | concat arith",
-      this.derivation.length
-    );
-
+    // Start with arith (first alternative)
+    this.addDerivation("concat", "arith", this.derivation.length);
     let leftNode = this.arith();
 
     // Allow concatenation for both regex patterns and arithmetic expressions
     // Regex: when next token is a character (allows "ab", "ab*", "a(b)", etc.)
     // Arithmetic: when next token is a number or opening parenthesis (allows "(1)*(2)", "2(3)", etc.)
     while (this.peek() && (this.isChar(this.peek()!) || this.isDigit(this.peek()!) || this.peek() === "(")) {
+      // Show the concat arith derivation
+      this.addDerivation("concat", "concat arith", this.derivation.length);
+      
       const rightNode = this.arith();
 
       leftNode = this.createParseNode(
@@ -115,12 +100,6 @@ export class Parser {
         2.5, // precedence for concatenation
         "left"
       );
-
-      this.addDerivation(
-        "concat",
-        `${leftNode.children[0].value} ${rightNode.value}`,
-        this.derivation.length
-      );
     }
 
     return leftNode;
@@ -128,17 +107,16 @@ export class Parser {
 
   // <arith> ::= <term> | <arith> "+" <term> | <arith> "-" <term>
   private arith(): ParseNode {
-    this.addDerivation(
-      "arith",
-      "term | arith + term | arith - term",
-      this.derivation.length
-    );
-
+    // Start with term (first alternative)
+    this.addDerivation("arith", "term", this.derivation.length);
     let leftNode = this.term();
 
     while (this.peek() === "+" || this.peek() === "-") {
       const operator = this.peek()!;
       this.consume();
+
+      // Show the arith + term or arith - term derivation
+      this.addDerivation("arith", `arith ${operator} term`, this.derivation.length);
 
       const rightNode = this.term();
 
@@ -149,12 +127,6 @@ export class Parser {
         1, // precedence level 1
         "left"
       );
-
-      this.addDerivation(
-        "arith",
-        `${leftNode.children[0].value} ${operator} ${rightNode.value}`,
-        this.derivation.length
-      );
     }
 
     return leftNode;
@@ -162,17 +134,16 @@ export class Parser {
 
   // <term> ::= <factor> | <term> "*" <factor> | <term> "/" <factor>
   private term(): ParseNode {
-    this.addDerivation(
-      "term",
-      "factor | term * factor | term / factor",
-      this.derivation.length
-    );
-
+    // Start with factor (first alternative)
+    this.addDerivation("term", "factor", this.derivation.length);
     let leftNode = this.factor();
 
     while (this.peek() === "*" || this.peek() === "/") {
       const operator = this.peek()!;
       this.consume();
+
+      // Show the term * factor or term / factor derivation
+      this.addDerivation("term", `term ${operator} factor`, this.derivation.length);
 
       const rightNode = this.factor();
 
@@ -183,12 +154,6 @@ export class Parser {
         2, // precedence level 2
         "left"
       );
-
-      this.addDerivation(
-        "term",
-        `${leftNode.children[0].value} ${operator} ${rightNode.value}`,
-        this.derivation.length
-      );
     }
 
     return leftNode;
@@ -196,8 +161,8 @@ export class Parser {
 
   // <factor> ::= <base> | <base> "*"
   private factor(): ParseNode {
-    this.addDerivation("factor", "base | base *", this.derivation.length);
-
+    // Start with base (first alternative)
+    this.addDerivation("factor", "base", this.derivation.length);
     const baseNode = this.base();
 
     // Only allow Kleene star on characters, not numbers or parenthesized expressions
@@ -205,18 +170,15 @@ export class Parser {
     if (this.peek() === "*" && this.isCharNode(baseNode) && !this.isArithmeticExpression()) {
       this.consume();
 
+      // Show the base * derivation
+      this.addDerivation("factor", "base *", this.derivation.length);
+
       const repetitionNode = this.createParseNode(
         "factor",
         "*",
         [baseNode],
         4, // highest precedence for Kleene star
         "right"
-      );
-
-      this.addDerivation(
-        "factor",
-        `${baseNode.value} *`,
-        this.derivation.length
       );
       return repetitionNode;
     }
@@ -226,15 +188,9 @@ export class Parser {
 
   // <base> ::= <number> | <char> | "(" <expr> ")"
   private base(): ParseNode {
-    this.addDerivation(
-      "base",
-      "number | char | ( expr )",
-      this.derivation.length
-    );
-
     if (this.peek() === "(") {
-      this.consume("(");
       this.addDerivation("base", "( expr )", this.derivation.length);
+      this.consume("(");
 
       const exprNode = this.expr();
 
@@ -242,8 +198,10 @@ export class Parser {
 
       return this.createParseNode("base", "()", [exprNode], 3, "left");
     } else if (this.isDigit(this.peek()!)) {
+      this.addDerivation("base", "number", this.derivation.length);
       return this.number();
     } else if (this.isChar(this.peek()!)) {
+      this.addDerivation("base", "char", this.derivation.length);
       return this.char();
     } else {
       throw new SyntaxError(
@@ -254,12 +212,6 @@ export class Parser {
 
   // <number> ::= <digit> | <digit> <number> | <digit> "." <number>
   private number(): ParseNode {
-    this.addDerivation(
-      "number",
-      "digit | digit number | digit . number",
-      this.derivation.length
-    );
-
     if (!this.peek() || !this.isDigit(this.peek()!)) {
       throw new SyntaxError(`Expected number at position ${this.pos}`);
     }
@@ -274,6 +226,7 @@ export class Parser {
 
     // Parse decimal part if present
     if (this.peek() === ".") {
+      this.addDerivation("number", "digit . number", this.derivation.length);
       value += ".";
       this.consume();
 
@@ -281,6 +234,10 @@ export class Parser {
         value += this.peek();
         this.consume();
       }
+    } else if (value.length > 1) {
+      this.addDerivation("number", "digit number", this.derivation.length);
+    } else {
+      this.addDerivation("number", "digit", this.derivation.length);
     }
 
     this.addDerivation("number", value, this.derivation.length);
@@ -384,9 +341,6 @@ export class Parser {
 
   public parse(): { derivation: string[]; parseTree: ParseNode } {
     this.derivation = [];
-
-    this.addDerivation("start", this.text, 0);
-    this.addDerivation("expr", this.text, 1);
 
     const exprTree = this.expr();
 
