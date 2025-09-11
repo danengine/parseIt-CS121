@@ -447,65 +447,6 @@ const Playground: React.FC = () => {
                 )}
               </div>
             )}
-
-            {/* Parse Tree Visualization */}
-            {result.isValid && result.parseTree && (
-              <div className="bg-gray-800 rounded-lg border border-gray-600 overflow-hidden">
-                <button
-                  onClick={() => setShowParseTree(!showParseTree)}
-                  className="w-full px-6 py-4 text-left flex justify-between items-center hover:bg-gray-700 transition-colors"
-                  style={{ fontFamily: "DM Mono, monospace" }}
-                >
-                  <span className="text-lg font-semibold">Parse Tree Visualization</span>
-                  <span className="text-xl">
-                    {showParseTree ? "−" : "+"}
-                  </span>
-                </button>
-                
-                {showParseTree && (
-                  <div className="px-4 md:px-6 py-4 bg-gray-700">
-                    <div className="bg-gray-800 rounded-lg p-4 md:p-6 border border-gray-600 overflow-x-auto">
-                      <h4 
-                        className="text-base md:text-lg font-semibold mb-4 md:mb-6 text-purple-400 text-center"
-                        style={{ fontFamily: "DM Mono, monospace" }}
-                      >
-                        Tree Structure
-                      </h4>
-                      <div className="flex justify-center min-w-max">
-                        <ParseTreeNode node={result.parseTree} />
-                      </div>
-                    </div>
-                    
-                    <div className="mt-4 p-4 bg-gray-600 rounded-lg">
-                      <p 
-                        className="text-sm text-gray-300"
-                        style={{ fontFamily: "DM Mono, monospace" }}
-                      >
-                        <strong>Parse Tree:</strong> This shows the complete hierarchical structure of your expression with ALL intermediate nodes visible. 
-                        Each node represents a grammar rule application, with children showing how the expression 
-                        is broken down step by step. The tree supports both arithmetic operations (+, -, *, /) and regex operations 
-                        (| for union, · for concatenation, * for Kleene star). 
-                        <br/><br/>
-                        <strong>Color Coding:</strong> Each node type has a unique color to make the tree structure clearer:
-                        <br/>• <span className="text-blue-400">Start</span> - Root node
-                        <br/>• <span className="text-red-400">Union</span> - | operator
-                        <br/>• <span className="text-green-400">Concat</span> - · concatenation
-                        <br/>• <span className="text-yellow-400">Arith</span> - + and - operations
-                        <br/>• <span className="text-orange-400">Term</span> - * and / operations
-                        <br/>• <span className="text-purple-400">Factor</span> - Kleene star
-                        <br/>• <span className="text-pink-400">Base</span> - Parentheses
-                        <br/>• <span className="text-cyan-400">Number</span> - Numeric literals
-                        <br/>• <span className="text-indigo-400">Char</span> - Character literals
-                        <br/>• <span className="text-emerald-400">Digit</span> - Individual digits
-                        <br/><br/>
-                        <strong>Precedence levels:</strong> Union (0.5), Addition/Subtraction (1), Multiplication/Division (2), 
-                        Concatenation (2.5), Parentheses (3), Kleene Star (4). All operations are now explicitly shown in the tree.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
           </div>
         )}
 
